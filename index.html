@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>月薪消消喵 Mochi Match</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(135deg, #FFF5E6 0%, #FFE4C4 50%, #FFDAB9 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.container {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(200, 120, 60, 0.25), 0 2px 8px rgba(200, 120, 60, 0.1);
+  max-width: 480px;
+  width: 95vw;
+}
+.title {
+  text-align: center;
+  font-size: 1.8em;
+  font-weight: 800;
+  color: #E8742A;
+  margin-bottom: 12px;
+  text-shadow: 1px 1px 2px rgba(200,120,40,0.2);
+  letter-spacing: 2px;
+}
+.stats {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #F5DCC8;
+}
+.stat-item {
+  font-size: 1.1em;
+  color: #8B5E3C;
+  font-weight: 600;
+}
+.stat-value {
+  color: #E8742A;
+  font-size: 1.3em;
+  font-weight: 800;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 6px;
+  background: #FDF0E2;
+  border-radius: 16px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 2px 8px rgba(180,100,40,0.1);
+}
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFF;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.cell img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.cell:hover { background: #FFF5E6; transform: scale(1.08); }
+.cell.selected {
+  background: #FFE0B2;
+  box-shadow: 0 0 0 3px #E8742A, 0 2px 12px rgba(232,116,42,0.4);
+  transform: scale(1.12);
+  z-index: 2;
+}
+.cell.hint {
+  animation: hintPulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes hintPulse {
+  from { box-shadow: 0 0 0 2px #FF9800; transform: scale(1.05); }
+  to   { box-shadow: 0 0 0 4px #FF5722, 0 0 16px rgba(255,87,34,0.5); transform: scale(1.12); }
+}
+.cell.removing {
+  animation: popOut 0.3s ease forwards;
+}
+@keyframes popOut {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.3); opacity: 0.6; }
+  100% { transform: scale(0); opacity: 0; }
+}
+.cell.appearing {
+  animation: popIn 0.3s ease forwards;
+}
+@keyframes popIn {
+  0%   { transform: scale(0); opacity: 0; }
+  70%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+.btn-reset {
+  background: linear-gradient(135deg, #FF8A65, #E8742A);
+  color: #FFF;
+}
+.btn-reset:hover { background: linear-gradient(135deg, #E8742A, #D35400); transform: translateY(-2px); }
+.btn-hint {
+  background: linear-gradient(135deg, #FFB74D, #FF9800);
+  color: #FFF;
+}
+.btn-hint:hover { background: linear-gradient(135deg, #FF9800, #F57C00); transform: translateY(-2px); }
+.message-bar {
+  text-align: center;
+  padding: 10px;
+  min-height: 44px;
+  color: #8B5E3C;
+  font-size: 1em;
+  font-weight: 600;
+  background: #FFF8F0;
+  border-radius: 12px;
+  line-height: 1.5;
+  transition: all 0.3s;
+}
+.message-bar.show {
+  background: #FFF0DB;
+  color: #E8742A;
+}
+.combo-display {
+  text-align: center;
+  font-size: 1.4em;
+  font-weight: 800;
+  color: #FF5722;
+  min-height: 30px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.combo-display.show { opacity: 1; }
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.game-over-card {
+  background: #FFF;
+  border-radius: 20px;
+  padding: 30px 40px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  transform: scale(0.8);
+  transition: transform 0.3s;
+}
+.overlay.show .game-over-card { transform: scale(1); }
+.game-over-card h2 { font-size: 1.6em; color: #E8742A; margin-bottom: 10px; }
+.game-over-card .final-score { font-size: 2.2em; font-weight: 800; color: #FF5722; margin: 10px 0; }
+.game-over-card p { color: #8B5E3C; margin-bottom: 20px; }
+.game-over-card .btn { min-width: 140px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="title">月薪消消喵</div>
+  <div class="stats">
+    <div class="stat-item">得分：<span class="stat-value" id="score">0</span></div>
+    <div class="stat-item">步数：<span class="stat-value" id="moves">30</span></div>
+  </div>
+  <div class="combo-display" id="combo"></div>
+  <div class="board" id="board"></div>
+  <div class="buttons">
+    <button class="btn btn-reset" onclick="resetGame()">重置游戏</button>
+    <button class="btn btn-hint" onclick="showHint()">提示</button>
+  </div>
+  <div class="message-bar" id="message">交换两个相邻表情开始游戏~</div>
+  <div style="text-align:center;margin-top:8px;font-size:0.75em;color:#C4A882;font-weight:300;letter-spacing:1px;">Design by 白泽</div>
+</div>
+<div class="overlay" id="overlay">
+  <div class="game-over-card">
+    <h2>游戏结束！</h2>
+    <div class="final-score" id="finalScore">0</div>
+    <p>干得漂亮喵~</p>
+    <button class="btn btn-reset" onclick="resetGame()">再来一局</button>
+  </div>
+</div>
+
+<script>
+const ROWS = 8, COLS = 8, MAX_MOVES = 30;
+const GIF_DIR = 'yuexinmiao_gif/';
+const TYPES = [
+  { file: '7deb67bf59431d8b2e1325768c71a8be86417a7d2b0c11ea7e45a019f47d5aa0.gif', text: '你很臭喵啊！！！' },
+  { file: 'e0fd6e9a768f22ee78382a1306cec42aa193a76a5dd3c7c959fdf816741fad90.gif', text: '我也不想喵~' },
+  { file: '08fd04bf1d1236c0b24a59320cf99f94ff0bec36d74d1b277a527b9a3945f597.gif', text: '麻了喵——' },
+  { file: 'bb8511e209992e139df5388611d70021274d3251bf2a0274526b20b2999246d6.gif', text: '暴富喵！' },
+  { file: 'fe3d6109dae00ae14a03b7c3f611e0f41732a26729c1f8ee0677dd5621750ef1.gif', text: '摸鱼喵~' },
+  { file: 'a1f6a96175acabc2c727a011e3dc4349dacf40c484d322ec1f1b6f489cce4bf8.gif', text: '贴贴喵' },
+  { file: 'aeeaaa2461f945bfcedd8f6defc976c6473c3306a11e9839f01be53ed1c47390.gif', text: '已读不回喵' }
+];
+
+let grid = [], selected = null, score = 0, moves = MAX_MOVES;
+let locked = false, comboCount = 0;
+let hintCells = [];
+let swipeStart = null;
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playPop() {
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(800, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.06);
+  o.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+  g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.18);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.18);
+}
+
+function playMeow() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(600, now);
+  o.frequency.linearRampToValueAtTime(1100, now + 0.1);
+  o.frequency.linearRampToValueAtTime(900, now + 0.2);
+  o.frequency.linearRampToValueAtTime(1200, now + 0.28);
+  o.frequency.linearRampToValueAtTime(700, now + 0.4);
+  g.gain.setValueAtTime(0.25, now);
+  g.gain.linearRampToValueAtTime(0.3, now + 0.1);
+  g.gain.linearRampToValueAtTime(0.2, now + 0.28);
+  g.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(now); o.stop(now + 0.45);
+}
+
+function playCombo(level) {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const baseFreq = 500 + level * 100;
+  for (let i = 0; i < 3; i++) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const t = now + i * 0.08;
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(baseFreq + i * 200, t);
+    o.frequency.exponentialRampToValueAtTime(baseFreq + 400 + i * 150, t + 0.1);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.15);
+  }
+}
+
+function playSwap() {
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(400, audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.08);
+  g.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.1);
+}
+
+function playInvalid() {
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(250, audioCtx.currentTime);
+  o.frequency.linearRampToValueAtTime(180, audioCtx.currentTime + 0.15);
+  g.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.2);
+}
+
+function playGameOver() {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const notes = [600, 500, 400, 300];
+  notes.forEach((f, i) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    const t = now + i * 0.2;
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.25, t);
+    g.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t); o.stop(t + 0.25);
+  });
+}
+
+function createGrid() {
+  grid = [];
+  for (let r = 0; r < ROWS; r++) {
+    grid[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      let t;
+      do { t = randType(); } while (wouldMatch(r, c, t));
+      grid[r][c] = t;
+    }
+  }
+}
+
+function randType() {
+  return Math.floor(Math.random() * TYPES.length);
+}
+
+function wouldMatch(r, c, t) {
+  if (c >= 2 && grid[r][c - 1] === t && grid[r][c - 2] === t) return true;
+  if (r >= 2 && grid[r - 1] && grid[r - 1][c] === t && grid[r - 2] && grid[r - 2][c] === t) return true;
+  return false;
+}
+
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      if (grid[r][c] !== null) {
+        const img = document.createElement('img');
+        img.src = GIF_DIR + TYPES[grid[r][c]].file;
+        img.alt = TYPES[grid[r][c]].text;
+        img.loading = 'lazy';
+        cell.appendChild(img);
+      }
+      boardEl.appendChild(cell);
+    }
+  }
+  updateStats();
+}
+
+function getCell(r, c) {
+  return document.getElementById('board').children[r * COLS + c];
+}
+
+function getCellFromEvent(e) {
+  const boardEl = document.getElementById('board');
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  const el = document.elementFromPoint(clientX, clientY);
+  if (!el) return null;
+  const cell = el.closest('.cell');
+  if (!cell || !boardEl.contains(cell)) return null;
+  return { r: parseInt(cell.dataset.row), c: parseInt(cell.dataset.col) };
+}
+
+function onStart(e) {
+  if (locked || moves <= 0) return;
+  const pos = getCellFromEvent(e);
+  if (!pos) return;
+  clearHints();
+  swipeStart = { r: pos.r, c: pos.c, x: e.touches ? e.touches[0].clientX : e.clientX, y: e.touches ? e.touches[0].clientY : e.clientY };
+}
+
+function onEnd(e) {
+  if (locked || moves <= 0 || !swipeStart) return;
+  const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+  const dx = endX - swipeStart.x;
+  const dy = endY - swipeStart.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const threshold = 15;
+
+  if (dist < threshold) {
+    onClickCell(swipeStart.r, swipeStart.c);
+  } else {
+    let dr = 0, dc = 0;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      dc = dx > 0 ? 1 : -1;
+    } else {
+      dr = dy > 0 ? 1 : -1;
+    }
+    const nr = swipeStart.r + dr;
+    const nc = swipeStart.c + dc;
+    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+      if (selected !== null) {
+        getCell(selected.r, selected.c).classList.remove('selected');
+        selected = null;
+      }
+      trySwap(swipeStart.r, swipeStart.c, nr, nc);
+    }
+  }
+  swipeStart = null;
+}
+
+function onClickCell(r, c) {
+  if (locked || moves <= 0) return;
+  if (selected === null) {
+    selected = { r, c };
+    getCell(r, c).classList.add('selected');
+  } else {
+    const prev = selected;
+    getCell(prev.r, prev.c).classList.remove('selected');
+    if (isAdjacent(prev, { r, c })) {
+      selected = null;
+      trySwap(prev.r, prev.c, r, c);
+    } else {
+      selected = { r, c };
+      getCell(r, c).classList.add('selected');
+    }
+  }
+}
+
+function isAdjacent(a, b) {
+  return (Math.abs(a.r - b.r) + Math.abs(a.c - b.c)) === 1;
+}
+
+async function trySwap(r1, c1, r2, c2) {
+  locked = true;
+  playSwap();
+  swap(r1, c1, r2, c2);
+  renderBoard();
+  const matches = findAllMatches();
+  if (matches.length === 0) {
+    await sleep(250);
+    playInvalid();
+    swap(r1, c1, r2, c2);
+    renderBoard();
+    setMessage('没有消除，换回来啦~');
+    locked = false;
+    return;
+  }
+  moves--;
+  updateStats();
+  comboCount = 0;
+  await processMatches();
+  locked = false;
+  if (moves <= 0) {
+    await sleep(400);
+    playGameOver();
+    showGameOver();
+  }
+}
+
+function swap(r1, c1, r2, c2) {
+  const tmp = grid[r1][c1];
+  grid[r1][c1] = grid[r2][c2];
+  grid[r2][c2] = tmp;
+}
+
+function findAllMatches() {
+  const matched = new Set();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS - 2; c++) {
+      const t = grid[r][c];
+      if (t === null) continue;
+      if (grid[r][c + 1] === t && grid[r][c + 2] === t) {
+        let end = c + 2;
+        while (end + 1 < COLS && grid[r][end + 1] === t) end++;
+        for (let i = c; i <= end; i++) matched.add(r * COLS + i);
+        c = end;
+      }
+    }
+  }
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS - 2; r++) {
+      const t = grid[r][c];
+      if (t === null) continue;
+      if (grid[r + 1][c] === t && grid[r + 2][c] === t) {
+        let end = r + 2;
+        while (end + 1 < ROWS && grid[end + 1][c] === t) end++;
+        for (let i = r; i <= end; i++) matched.add(i * COLS + c);
+        r = end;
+      }
+    }
+  }
+  return [...matched];
+}
+
+async function processMatches() {
+  let matches = findAllMatches();
+  while (matches.length > 0) {
+    comboCount++;
+    const matchTypes = new Set(matches.map(i => grid[Math.floor(i / COLS)][i % COLS]));
+    const mainType = [...matchTypes][0];
+    const pts = calcPoints(matches.length, comboCount);
+    score += pts;
+    updateStats();
+    showCombo(comboCount);
+    setMessage(TYPES[mainType].text + (comboCount > 1 ? ` x${comboCount}连击！` : ''));
+    if (comboCount >= 2) {
+      playCombo(comboCount);
+    } else {
+      playPop();
+    }
+    if (comboCount >= 3) playMeow();
+    matches.forEach(i => {
+      const el = getCell(Math.floor(i / COLS), i % COLS);
+      if (el) el.classList.add('removing');
+    });
+    await sleep(300);
+    matches.forEach(i => { grid[Math.floor(i / COLS)][i % COLS] = null; });
+    dropAndFill();
+    renderBoard();
+    document.querySelectorAll('.cell').forEach(el => el.classList.add('appearing'));
+    await sleep(300);
+    document.querySelectorAll('.cell').forEach(el => el.classList.remove('appearing'));
+    matches = findAllMatches();
+  }
+}
+
+function calcPoints(count, combo) {
+  const multipliers = [1, 1, 1.2, 1.5, 2];
+  let base = count >= 4 ? 30 : 10;
+  return Math.floor(base * multipliers[Math.min(combo, multipliers.length - 1)]);
+}
+
+function dropAndFill() {
+  for (let c = 0; c < COLS; c++) {
+    let empty = ROWS - 1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (grid[r][c] !== null) {
+        grid[empty][c] = grid[r][c];
+        if (empty !== r) grid[r][c] = null;
+        empty--;
+      }
+    }
+    for (let r = empty; r >= 0; r--) { grid[r][c] = randType(); }
+  }
+}
+
+function showCombo(n) {
+  const el = document.getElementById('combo');
+  if (n >= 2) {
+    el.textContent = `${n}连击！`;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1500);
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+function setMessage(msg) {
+  const el = document.getElementById('message');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('moves').textContent = moves;
+}
+
+function resetGame() {
+  document.getElementById('overlay').classList.remove('show');
+  score = 0;
+  moves = MAX_MOVES;
+  selected = null;
+  locked = false;
+  comboCount = 0;
+  createGrid();
+  renderBoard();
+  setMessage('新游戏开始，加油喵~');
+}
+
+function showHint() {
+  if (locked || moves <= 0) return;
+  clearHints();
+  const hint = findHint();
+  if (hint) {
+    hint.forEach(([r, c]) => getCell(r, c).classList.add('hint'));
+    hintCells = hint;
+    setMessage('提示：试试交换这两个喵~');
+    setTimeout(clearHints, 3000);
+  } else {
+    setMessage('没有可消除的位置，换一组吧~');
+  }
+}
+
+function clearHints() {
+  hintCells.forEach(([r, c]) => {
+    const el = getCell(r, c);
+    if (el) el.classList.remove('hint');
+  });
+  hintCells = [];
+}
+
+function findHint() {
+  const dirs = [[0, 1], [1, 0]];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= ROWS || nc >= COLS) continue;
+        swap(r, c, nr, nc);
+        if (findAllMatches().length > 0) { swap(r, c, nr, nc); return [[r, c], [nr, nc]]; }
+        swap(r, c, nr, nc);
+      }
+    }
+  }
+  return null;
+}
+
+function showGameOver() {
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+const boardEl = document.getElementById('board');
+boardEl.addEventListener('mousedown', onStart);
+boardEl.addEventListener('mouseup', onEnd);
+boardEl.addEventListener('touchstart', onStart, { passive: true });
+boardEl.addEventListener('touchend', onEnd);
+
+resetGame();
+</script>
+</body>
+</html>
